@@ -1,0 +1,209 @@
+Metadata-Version: 2.1
+Name: pylimo
+Version: 0.3.5
+Summary: A small example package for limo
+Home-page: https://github.com/agilexrobotics/limo_ros
+Author: agilexrobotics
+Author-email: support@agilex.ai
+License: UNKNOWN
+Project-URL: Bug Tracker, https://github.com/agilexrobotics/limo_ros/issues
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: pyserial (>=3.5)
+
+# This is Python API for Agilex limo
+
+###### This is a python API for serial communication with Agilex Robotics-limo
+
+### Installation
+
+##### Notes:
+
+###### Make sure that python version >=3.4. if you have python3 and python2 ,please use python3
+
+#### pip
+
+````bash
+pip3 install pylimo
+````
+
+##### Notes:
+
+###### Make sure that pip3 version >= 9.0.0. 
+
+```bash
+pip3 -V     																				 #cheak the pip3 version
+python3 -m pip install --upgrade pip                          #updata pip3
+```
+
+### import to your project
+
+```python
+#!/usr/bin/env python3
+# coding=utf-8
+from pylimo import limo
+limo=limo.LIMO()
+```
+
+#### function list:
+
+```python
+    EnableCommand()
+    SetMotionCommand()
+    GetLinearVelocity()
+    GetAngularVelocity()
+    GetSteeringAngle()
+    GetLateralVelocity()
+    GetControlMode()
+    GetBatteryVoltage()
+    GetErrorCode()
+    GetRightWheelOdem()
+    GetLeftWheelOdem()
+    GetIMUAccelData()
+    GetIMUGyroData()
+    GetIMUYawData()
+    GetIMUPichData()
+    GetIMURollData()
+```
+
+#### EnableCommand
+
+- **Prototype**: `EnableCommand()`
+- **Description**: Enable command and control mode.
+
+#### SetMotionCommand
+
+- **Prototype**: `SetMotionCommand()`
+- **Description**:Send Version Request to robots.
+- **Parameters**
+  - `linear_vel`:(float) 
+  - `angular_vel`:(float)    diff
+  - `lateral_velocity`:(float)  manamu
+  - `steering_angle`:(float)  ackerman
+
+#### GetLinearVelocity
+
+- **Prototype**: `GetLinearVelocity()`
+- **Description**:Get the linear velocity from limo
+- **Return**:linear velocity
+
+#### GetAngularVelocity
+
+- **Prototype**: `GetAngularVelocity()`
+- **Description**:Get the angular velocity from limo .
+- **Return**:angular velocity
+
+#### GetSteeringAngle
+
+- **Prototype**: `GetSteeringAngle()`
+- **Description**:Get the steering angle from limo .
+- **Return**:steering angle
+
+#### GetLateralVelocity
+
+- **Prototype**: `GetLateralVelocity()`
+- **Description**:Get the lateral velocity from limo .
+- **Return**:lateral velocity
+
+#### GetControlMode
+
+- **Prototype**: `GetControlMode()`
+- **Description**:Get the control mode from limo .
+- **Return**:control mode
+
+#### GetLeftWheelOdeom
+
+- **Prototype**: `GetLeftWheelOdeo()`
+- **Description**:get robots LeftWheelOdom .
+- **Return**:LeftWheelOdom
+
+#### GetRightWheelOdom
+
+- **Prototype**: `GetRightWheelOdom()`
+- **Description**:get robots RightWheelOdom .
+- **Return**:RightWheelOdeom
+
+#### GetBatteryVoltage
+
+- **Prototype**: `GetBatteryVoltage()`
+- **Description**:Get the battery voltage from limo
+- **Return**:battery voltage
+
+#### GetErrorCode
+
+- **Prototype**: `GetErrorCode()`
+- **Description**:Get the error code from limo
+- **Return**:error code
+
+#### GetIMUAccelData
+
+- **Prototype**: `GetIMUAccelData()`
+- **Description**:Get the IMU accle data form limo.
+- **Return**:IMU_accel_x,IMU_accel_y,IMU_accel_z
+
+#### GetIMUGyroData
+
+- **Prototype**: `GetIMUGyroData()`
+- **Description**:Get the IMU gyro data form limo.
+- **Return**:IMU_gyro_x,IMU_gyro_y,IMU_gyro_z
+
+#### GetIMUYaw
+
+- **Prototype**: `GetIMUYaw()`
+- **Description**:Get the IMU yaw data form limo.
+- **Return**:IMU_yaw
+
+#### GetIMUPitch
+
+- **Prototype**: `GetIMUPitch()`
+- **Description**:Get the IMU pitch data form limo.
+- **Return**:IMU_pitch
+
+#### GetIMURoll
+
+- **Prototype**: `GetIMURoll()`
+- **Description**:Get the IMU roll data form limo.
+- **Return**:IMU_roll
+
+### Example
+
+#### Note:
+
+##### For safety, please ensure that the robot's wheels are off the ground
+
+#### 1.Move Robot
+
+```python
+#!/usr/bin/env python3
+# coding=UTF-8
+from pylimo import limo
+import time
+limo=limo.LIMO()
+limo.EnableCommand()
+while True:
+    limo.SetMotionCommand(linear_vel=0.1,angular_vel=-0.01)
+    time.sleep(0.1)
+```
+
+#### 2.get  message
+
+```python
+#!/usr/bin/env python3
+# coding=UTF-8
+from pylimo import limo
+import time
+limo=limo.LIMO()
+limo.EnableCommand()
+while True:
+    time.sleep(0.1)
+    print(limo.GetLinearVelocity())
+```
+
+
