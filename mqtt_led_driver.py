@@ -36,10 +36,10 @@ KEEP_ALIVE_TIME_SEC = 60
 # -----------------------
 # GPIO Configuration
 # -----------------------
-RED_PIN = 40
-GREEN_PIN = 38
-BLUE_PIN = 36
-INFRARED_STRIP_MOSFET_PIN = 32
+RED_PIN = 37
+GREEN_PIN = 35
+BLUE_PIN = 33
+INFRARED_STRIP_MOSFET_PIN = 31
 
 PWM_FREQ_HZ = 100  # software PWM refresh rate
 
