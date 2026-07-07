@@ -29,7 +29,7 @@ def main():
     # Pin Setup:
     GPIO.setmode(GPIO.BCM)  # BCM pin-numbering scheme from Raspberry Pi
     # set pin as an output pin with optional initial state of HIGH
-    GPIO.setup(output_pin, GPIO.OUT, initial=GPIO.HIGH)
+    GPIO.setup(output_pin, GPIO.OUT)
 
     print("Starting demo now! Press CTRL+C to exit")
     curr_value = GPIO.HIGH
