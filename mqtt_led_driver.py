@@ -10,6 +10,7 @@ and drives an RGB LED (+ optional IR strip MOSFET) directly via Jetson.GPIO.
 import logging
 import signal
 import sys
+import threading
 import time
 
 import Jetson.GPIO as GPIO
@@ -40,7 +41,7 @@ GREEN_PIN = 38
 BLUE_PIN = 36
 INFRARED_STRIP_MOSFET_PIN = 32
 
-PWM_FREQ_HZ = 100
+PWM_FREQ_HZ = 100  # software PWM refresh rate
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(RED_PIN, GPIO.OUT)
@@ -48,9 +49,57 @@ GPIO.setup(GREEN_PIN, GPIO.OUT)
 GPIO.setup(BLUE_PIN, GPIO.OUT)
 GPIO.setup(INFRARED_STRIP_MOSFET_PIN, GPIO.OUT)
 
-red = GPIO.PWM(RED_PIN, PWM_FREQ_HZ)
-green = GPIO.PWM(GREEN_PIN, PWM_FREQ_HZ)
-blue = GPIO.PWM(BLUE_PIN, PWM_FREQ_HZ)
+
+class SoftwarePWM:
+    """
+    Bit-banged PWM for boards/pins without real hardware PWM support.
+    Runs a background thread toggling the pin at PWM_FREQ_HZ according
+    to the current duty cycle (0-100).
+    """
+
+    def __init__(self, pin, freq_hz=PWM_FREQ_HZ):
+        self.pin = pin
+        self.period = 1.0 / freq_hz
+        self.duty = 0.0
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self, duty=0):
+        self.ChangeDutyCycle(duty)
+        self._thread.start()
+
+    def ChangeDutyCycle(self, duty):
+        with self._lock:
+            self.duty = max(0.0, min(100.0, duty))
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            with self._lock:
+                duty = self.duty
+            if duty <= 0:
+                GPIO.output(self.pin, GPIO.LOW)
+                time.sleep(self.period)
+            elif duty >= 100:
+                GPIO.output(self.pin, GPIO.HIGH)
+                time.sleep(self.period)
+            else:
+                on_time = self.period * (duty / 100.0)
+                off_time = self.period - on_time
+                GPIO.output(self.pin, GPIO.HIGH)
+                time.sleep(on_time)
+                GPIO.output(self.pin, GPIO.LOW)
+                time.sleep(off_time)
+
+    def stop(self):
+        self._stop_event.set()
+        self._thread.join(timeout=1)
+        GPIO.output(self.pin, GPIO.LOW)
+
+
+red = SoftwarePWM(RED_PIN)
+green = SoftwarePWM(GREEN_PIN)
+blue = SoftwarePWM(BLUE_PIN)
 red.start(0)
 green.start(0)
 blue.start(0)
