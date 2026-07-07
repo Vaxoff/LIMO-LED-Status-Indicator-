@@ -128,7 +128,7 @@ def apply_status(status: str):
         set_color(0, 0, 100)      # BLUE
         set_infrared(True)
     elif status == "CONNECTED":
-        set_color(100, 100, 100)    # YELLOW
+        set_color(10, 50, 90)    # YELLOW
         set_infrared(True)
     elif status == "DISCONNECTED":
         set_color(100, 50, 0)     # ORANGE
