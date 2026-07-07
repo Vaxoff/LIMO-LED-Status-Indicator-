@@ -13,6 +13,9 @@ GPIO.setup(RED_PIN, GPIO.OUT)
 GPIO.setup(GREEN_PIN, GPIO.OUT)
 GPIO.setup(BLUE_PIN, GPIO.OUT)
 
+print(GPIO.VERSION)
+print(GPIO.JETSON_INFO)
+
 COLORS = {
     "r": (1, 0, 0),
     "g": (0, 1, 0),

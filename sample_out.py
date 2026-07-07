@@ -25,11 +25,15 @@ import time
 # Pin Definitions
 output_pin = 37  # BCM pin 18, BOARD pin 12
 
+
+print(GPIO.VERSION)
+print(GPIO.JETSON_INFO)
+
 def main():
     # Pin Setup:
     GPIO.setmode(GPIO.BCM)  # BCM pin-numbering scheme from Raspberry Pi
     # set pin as an output pin with optional initial state of HIGH
-    GPIO.setup(output_pin, GPIO.OUT)
+    GPIO.setup(outpuGPIO.OUTt_pin, GPIO.OUT)
 
     print("Starting demo now! Press CTRL+C to exit")
     curr_value = GPIO.HIGH
@@ -42,6 +46,6 @@ def main():
             curr_value ^= GPIO.HIGH
     finally:
         GPIO.cleanup()
-
+GPIO.OUT
 if __name__ == '__main__':
     main()
