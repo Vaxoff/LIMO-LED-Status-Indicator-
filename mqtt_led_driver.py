@@ -14,7 +14,6 @@ import time
 
 import Jetson.GPIO as GPIO
 import paho.mqtt.client as mqtt
-from paho.mqtt.enums import CallbackAPIVersion
 
 # -----------------------
 # Logging
@@ -96,7 +95,7 @@ def apply_status(status: str):
 # -----------------------
 # MQTT Callbacks
 # -----------------------
-def on_connect(client, userdata, flags, rc, properties=None):
+def on_connect(client, userdata, flags, rc):
     if rc == 0:
         log.info("Connected to MQTT broker successfully.")
         client.subscribe(TOPIC)
@@ -111,7 +110,7 @@ def on_message(client, userdata, msg):
     apply_status(payload)
 
 
-def on_disconnect(client, userdata, disconnect_flags, rc, properties=None):
+def on_disconnect(client, userdata, rc):
     log.warning("Disconnected from MQTT broker.")
     apply_status("DISCONNECTED")
 
@@ -133,7 +132,7 @@ def cleanup(client):
 
 
 def main():
-    client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)
+    client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_disconnect = on_disconnect
