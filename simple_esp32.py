@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
-"""
-Simple LED color tester - runs on the Jetson Nano.
-Talks to the ESP32 over USB serial.
-Type r/g/b/o in the terminal and the NeoPixel changes color.
-
-Install first:
-    pip install pyserial
-"""
-
 import serial
+import time
 
-# On the Jetson Nano, the ESP32 will likely show up here.
-# If it doesn't work, run: ls /dev/ttyACM* /dev/ttyUSB*
-# and change this to match what you see.
 SERIAL_PORT = "/dev/ttyACM0"  
 SERIAL_BAUD = 115200
 
 def main():
     try:
-        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        # Added rtscts=False and dsrdtr=False to prevent flow control hangs
+        # Added write_timeout=2 so it never freezes forever
+        ser = serial.Serial(
+            SERIAL_PORT, 
+            SERIAL_BAUD, 
+            timeout=1,
+            rtscts=False,
+            dsrdtr=False,
+            write_timeout=2
+        )
+        # Give the ESP32 3 seconds to finish booting up after the reset
+        time.sleep(3)  
         print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
     except Exception as e:
         print(f"Failed to open {SERIAL_PORT}. Error: {e}")
-        print("Did you check the port path? (ls /dev/ttyUSB*)")
         return
 
     try:
@@ -32,8 +31,11 @@ def main():
             if choice == "q":
                 break
             elif choice in ("r", "g", "b", "o"):
-                # We add '\n' because the ESP32 C++ code uses readStringUntil('\n')
-                ser.write((choice + "\n").encode("ascii"))
+                try:
+                    ser.write((choice + "\n").encode("ascii"))
+                    print(f"Sent: {choice}")
+                except serial.SerialTimeoutException:
+                    print("ESP32 didn't respond in time. Try again.")
             else:
                 print("Unknown option. Use r/g/b/o/q")
     finally:
