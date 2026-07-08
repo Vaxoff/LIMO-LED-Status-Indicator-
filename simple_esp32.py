@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
-import serial
 import time
 
-SERIAL_PORT = "/dev/ttyACM0"  
-SERIAL_BAUD = 115200
+SERIAL_PORT = "/dev/ttyACM0"
 
 def main():
-    try:
-        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
-        ser.dtr = False
-        ser.rts = False
-        time.sleep(3)
-        print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
-    except Exception as e:
-        print(f"Failed to open {SERIAL_PORT}. Error: {e}")
-        return
+    print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
 
     try:
         while True:
@@ -23,15 +13,21 @@ def main():
             if choice == "q":
                 break
             elif choice in ("r", "g", "b", "o"):
-                # Send just the single letter, no \n needed anymore!
-                ser.write(choice.encode("ascii"))
-                ser.flush()
-                print(f"Sent: {choice}")
+                # Open the port as a standard file and write to it, 
+                # exactly like the 'echo' command does!
+                try:
+                    with open(SERIAL_PORT, 'w') as f:
+                        f.write(choice + "\n")
+                        f.flush()
+                    print(f"Sent: {choice}")
+                except Exception as e:
+                    print(f"Error sending: {e}")
             else:
                 print("Unknown option. Use r/g/b/o/q")
+    except KeyboardInterrupt:
+        pass
     finally:
-        ser.close()
-        print("Serial closed.")
+        print("\nClosed.")
 
 if __name__ == "__main__":
     main()
