@@ -7,18 +7,10 @@ SERIAL_BAUD = 115200
 
 def main():
     try:
-        # Added rtscts=False and dsrdtr=False to prevent flow control hangs
-        # Added write_timeout=2 so it never freezes forever
-        ser = serial.Serial(
-            SERIAL_PORT, 
-            SERIAL_BAUD, 
-            timeout=1,
-            rtscts=False,
-            dsrdtr=False,
-            write_timeout=2
-        )
-        # Give the ESP32 3 seconds to finish booting up after the reset
-        time.sleep(3)  
+        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        ser.dtr = False
+        ser.rts = False
+        time.sleep(3)
         print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
     except Exception as e:
         print(f"Failed to open {SERIAL_PORT}. Error: {e}")
@@ -31,11 +23,10 @@ def main():
             if choice == "q":
                 break
             elif choice in ("r", "g", "b", "o"):
-                try:
-                    ser.write((choice + "\n").encode("ascii"))
-                    print(f"Sent: {choice}")
-                except serial.SerialTimeoutException:
-                    print("ESP32 didn't respond in time. Try again.")
+                # Send just the single letter, no \n needed anymore!
+                ser.write(choice.encode("ascii"))
+                ser.flush()
+                print(f"Sent: {choice}")
             else:
                 print("Unknown option. Use r/g/b/o/q")
     finally:
