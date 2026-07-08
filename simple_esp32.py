@@ -5,10 +5,13 @@ import time
 SERIAL_PORT = "/dev/ttyACM0"
 
 def main():
+    # Configure the port to prevent hangups
+    os.system(f"stty -F {SERIAL_PORT} 115200 cs8 -cstopb -parenb raw -echo -crtscts -hupcl")
+    
+    print("Opening port...")
     try:
-        # Open the port ONE time using low-level OS commands.
-        # O_RDWR = Read/Write, O_NOCTTY = No controlling terminal, O_NDELAY = Don't wait
-        fd = os.open(SERIAL_PORT, os.O_RDWR | os.O_NOCTTY | os.O_NDELAY)
+        # Open the port ONE time in binary write mode, no buffering
+        ser = open(SERIAL_PORT, 'wb', buffering=0)
         print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
     except Exception as e:
         print(f"Failed to open {SERIAL_PORT}. Error: {e}")
@@ -22,8 +25,8 @@ def main():
                 break
             elif choice in ("r", "g", "b", "o"):
                 try:
-                    # Write directly to the open file descriptor
-                    os.write(fd, (choice + "\n").encode("ascii"))
+                    # Write the byte directly to the open file
+                    ser.write(choice.encode('ascii'))
                     print(f"Sent: {choice}")
                 except Exception as e:
                     print(f"Error sending: {e}")
@@ -32,8 +35,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        # Only close the port when the user quits
-        os.close(fd)
+        ser.close()
         print("\nClosed.")
 
 if __name__ == "__main__":
