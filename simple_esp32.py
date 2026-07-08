@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-import subprocess
+import os
+import time
 
 SERIAL_PORT = "/dev/ttyACM0"
 
 def main():
-    print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
+    try:
+        # Open the port ONE time using low-level OS commands.
+        # O_RDWR = Read/Write, O_NOCTTY = No controlling terminal, O_NDELAY = Don't wait
+        fd = os.open(SERIAL_PORT, os.O_RDWR | os.O_NOCTTY | os.O_NDELAY)
+        print("Connected to ESP32. Type r/g/b/o (off), q to quit.")
+    except Exception as e:
+        print(f"Failed to open {SERIAL_PORT}. Error: {e}")
+        return
 
     try:
         while True:
@@ -13,10 +21,9 @@ def main():
             if choice == "q":
                 break
             elif choice in ("r", "g", "b", "o"):
-                # This runs the exact same 'echo' command you typed in the terminal
-                command = f'echo "{choice}" > {SERIAL_PORT}'
                 try:
-                    subprocess.run(command, shell=True, check=True)
+                    # Write directly to the open file descriptor
+                    os.write(fd, (choice + "\n").encode("ascii"))
                     print(f"Sent: {choice}")
                 except Exception as e:
                     print(f"Error sending: {e}")
@@ -25,6 +32,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        # Only close the port when the user quits
+        os.close(fd)
         print("\nClosed.")
 
 if __name__ == "__main__":
