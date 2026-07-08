@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import time
+import subprocess
 
 SERIAL_PORT = "/dev/ttyACM0"
 
@@ -13,12 +13,10 @@ def main():
             if choice == "q":
                 break
             elif choice in ("r", "g", "b", "o"):
-                # Open the port as a standard file and write to it, 
-                # exactly like the 'echo' command does!
+                # This runs the exact same 'echo' command you typed in the terminal
+                command = f'echo "{choice}" > {SERIAL_PORT}'
                 try:
-                    with open(SERIAL_PORT, 'w') as f:
-                        f.write(choice + "\n")
-                        f.flush()
+                    subprocess.run(command, shell=True, check=True)
                     print(f"Sent: {choice}")
                 except Exception as e:
                     print(f"Error sending: {e}")
