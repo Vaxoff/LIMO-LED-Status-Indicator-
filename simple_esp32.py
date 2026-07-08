@@ -13,7 +13,7 @@ import serial
 # On the Jetson Nano, the ESP32 will likely show up here.
 # If it doesn't work, run: ls /dev/ttyACM* /dev/ttyUSB*
 # and change this to match what you see.
-SERIAL_PORT = "/dev/ttyUSB0"  
+SERIAL_PORT = "/dev/ttyACM0"  
 SERIAL_BAUD = 115200
 
 def main():
