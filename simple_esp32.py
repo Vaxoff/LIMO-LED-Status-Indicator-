@@ -9,7 +9,7 @@ Install first:
 
 import serial
 
-SERIAL_PORT = "/dev/ttyACM0"   # check with: ls /dev/ttyACM* /dev/ttyUSB*
+SERIAL_PORT = "/dev/ttyUSB0"   # check with: ls /dev/ttyACM* /dev/ttyUSB*
 SERIAL_BAUD = 115200
 
 
