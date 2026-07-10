@@ -9,7 +9,7 @@ import os
 import signal
 import paho.mqtt.client as mqtt
 
-SERIAL_PORT = "COM7" #limo port:/dev/ttyACM0 my computer port: COM7
+SERIAL_PORT = "/dev/ttyACM0" #limo port:/dev/ttyACM0 my computer port: COM7
 BROKER_HOST = "rasticvm.internal"
 BROKER_PORT = 1883
 TOPIC = "led/status"
