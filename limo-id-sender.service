@@ -4,10 +4,10 @@ After=multi-user.target
 
 [Service]
 Type=simple
-# Adjust this path to wherever you actually place send_limo_id_v2.py,
+# Adjust this path to wherever you actually place send_limo_id.py,
 # and use the full path to python3 that has pyserial installed
 # (check with: which python3 ; python3 -m pip show pyserial)
-ExecStart=/usr/bin/python3 /home/agilex/LIMO-LED-Status-Indicator-/send_limo_id_v2.py
+ExecStart=/usr/bin/python3 /home/agilex/LIMO-LED-Status-Indicator-/send_limo_id.py
 Restart=always
 RestartSec=5
 User=agilex
