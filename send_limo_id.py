@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 """
-Tells the ESP32 which Limo it's plugged into, so if the board gets
-swapped between robots it always learns the correct ID.
+Watches for ESP32 boards appearing on /dev/ttyACM* (any index - ACM0,
+ACM1, etc) and tells each one which Limo it's plugged into, once per
+connection - not repeatedly.
 
-Reads this Jetson's own hostname (e.g. "limo780") and sends it over
-USB serial as "LIMO_ID:limo780\n". Resends periodically so the ESP32
-re-learns its ID automatically if it gets unplugged/replugged or
-reset while this script keeps running.
+Designed to run as a systemd service at boot. Logs go to stdout, which
+systemd/journald captures automatically. View them with:
+    journalctl -u limo-id-sender -f
 
 Install first:
     uv pip install pyserial
 """
 
+import glob
 import logging
 import signal
 import socket
-import sys
 import time
 
 import serial
 
-SERIAL_PORT = "/dev/ttyACM1"   # check with: ls /dev/ttyACM* /dev/ttyUSB*
-SERIAL_BAUD = 115200
-RESEND_INTERVAL_SEC = 10
+BAUD = 115200
+SCAN_INTERVAL_SEC = 2
+LIMO_ID = socket.gethostname()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,61 +30,80 @@ logging.basicConfig(
 )
 log = logging.getLogger("limo_id_sender")
 
+connections = {}   # port path -> serial.Serial
+running = True
 
-def get_limo_id() -> str:
-    """Returns this machine's hostname, e.g. 'limo780'."""
-    return socket.gethostname()
+
+def handle_signal(signum, frame):
+    global running
+    log.info("Shutting down...")
+    running = False
+
+
+signal.signal(signal.SIGINT, handle_signal)
+signal.signal(signal.SIGTERM, handle_signal)
+
+
+def find_ports():
+    return sorted(glob.glob("/dev/ttyACM*"))
+
+
+def open_and_identify(port):
+    try:
+        ser = serial.Serial(port, BAUD, timeout=0.2)
+        time.sleep(2)   # allow the board to finish resetting after USB open
+        ser.reset_input_buffer()
+        ser.write(f"LIMO_ID:{LIMO_ID}\n".encode())
+        log.info("New device on %s -> sent LIMO_ID:%s", port, LIMO_ID)
+        connections[port] = ser
+    except Exception as e:
+        log.error("Failed to open %s: %s", port, e)
 
 
 def main():
-    limo_id = get_limo_id()
-    log.info("This robot's ID: %s", limo_id)
+    log.info("This robot's ID: %s", LIMO_ID)
+    log.info("Watching for ESP32 boards on /dev/ttyACM*...")
 
-    try:
-        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
-    except Exception as e:
-        log.error("Could not open serial port %s: %s", SERIAL_PORT, e)
-        return
+    while running:
+        current_ports = find_ports()
 
-    time.sleep(2)  # give the ESP32 a moment after opening the port
-    ser.reset_input_buffer()
+        # New devices: open + send ID once
+        for port in current_ports:
+            if port not in connections:
+                open_and_identify(port)
 
-    def handle_sigint(signum, frame):
-        log.info("Shutting down...")
-        ser.close()
-        sys.exit(0)
+        # Removed devices: clean up so a future reconnect triggers a resend
+        for port in list(connections.keys()):
+            if port not in current_ports:
+                log.info("Device removed: %s", port)
+                try:
+                    connections[port].close()
+                except Exception:
+                    pass
+                del connections[port]
 
-    signal.signal(signal.SIGINT, handle_sigint)
-    signal.signal(signal.SIGTERM, handle_sigint)
+        # Drain and log anything the ESP32 sends back (confirmation, debug output)
+        for port, ser in list(connections.items()):
+            try:
+                if ser.in_waiting:
+                    line = ser.readline().decode(errors="replace").strip()
+                    if line:
+                        log.info("[%s] %s", port, line)
+            except Exception as e:
+                log.error("Read error on %s: %s", port, e)
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+                del connections[port]
 
-    def send_id():
+        time.sleep(SCAN_INTERVAL_SEC)
+
+    for ser in connections.values():
         try:
-            ser.write(f"LIMO_ID:{limo_id}\n".encode())
-            log.info("Sent LIMO_ID:%s", limo_id)
-        except Exception as e:
-            log.error("Serial write failed: %s", e)
-
-    send_id()
-
-    last_sent = time.time()
-    try:
-        while True:
-            # Print anything the ESP32 sends back (confirmation, debug logs)
-            if ser.in_waiting:
-                line = ser.readline().decode(errors="replace").strip()
-                if line:
-                    log.info("ESP32: %s", line)
-
-            if time.time() - last_sent > RESEND_INTERVAL_SEC:
-                send_id()
-                last_sent = time.time()
-
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        ser.close()
-        log.info("Closed.")
+            ser.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
