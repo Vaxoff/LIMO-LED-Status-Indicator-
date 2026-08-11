@@ -85,6 +85,18 @@ journalctl -u limo-id-sender -f
 
 This tails the service's logs in real time — useful for confirming it detects Wi-Fi changes and sends data correctly. Press `Ctrl+C` to exit.
 
+## LED Status Reference
+ 
+| Color | State | Meaning |
+|---|---|---|
+| 🟡 Yellow | Waiting for ID | Board has booted but hasn't received its `LIMO_ID` from the host yet. Normal for a few seconds after plugging in. |
+| 🔴 Red | Error | Either connecting to WiFi, or connected but failed to reach the MQTT broker. |
+| 🔵 Blue | Idle | Connected to WiFi + MQTT, has an ID, but hasn't seen any tracking messages yet. |
+| 🟣 Magenta | Not Tracked | MQTT messages are coming through, but none referencing this robot's ID in the last 10 seconds. |
+| 🟢 Green | Tracked | Messages referencing this robot's ID have been seen in the last 10 seconds — it's actively being tracked. |
+
+
+
 ## Troubleshooting
 
 | Symptom | Likely Cause | Fix |
@@ -147,3 +159,10 @@ this command checks logs
 ```bash
 journalctl -u limo-id-sender -f
 ```
+
+LED color refrence:
+Yellow: Waiting for LIMO id
+Red: Error
+Blue: Idle
+Magenta: Not tracked
+Green: Tracked
