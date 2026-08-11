@@ -119,6 +119,7 @@ not fancy shmancy readme
 
 # LIMO-LED-Status-Indicator-
 Turns LED on when connected to wifi
+```bash
 ssh agilex@limoXXX
 
 git clone repo
@@ -130,5 +131,19 @@ sudo systemctl daemon-reload
 sudo systemctl enable limo-id-sender
 sudo systemctl start limo-id-sender
 
+sudo usermod -aG dialout $USER
+sudo reboot
+groups
+```
+^ You should see dialout listed. If it's not there, you're still in the old session reboot again
+```bash
+ls -l /dev/ttyACM0
+```
+^ you should see something like 
+```bash
+crw-rw-rw- 1 root dialout 166, 0 ... /dev/ttyACM0
+```
+```bash
 journalctl -u limo-id-sender -f
-^ checks logs\
+```
+^ checks logs
