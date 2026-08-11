@@ -114,10 +114,8 @@ sudo systemctl daemon-reload
 
 
 --------------------------------------------------------------------------------------------------------------
-not fancy shmancy readme
+# not fancy shmancy readme
 
-
-# LIMO-LED-Status-Indicator-
 Turns LED on when connected to wifi
 ```bash
 ssh agilex@limoXXX
@@ -130,7 +128,9 @@ sudo cp limo-id-sender.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable limo-id-sender
 sudo systemctl start limo-id-sender
-
+```
+this fixes ACM pot issue
+``` bash
 sudo usermod -aG dialout $USER
 sudo reboot
 groups
