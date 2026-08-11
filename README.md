@@ -129,7 +129,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable limo-id-sender
 sudo systemctl start limo-id-sender
 ```
-this fixes ACM pot issue
+this fixes ACM port issue
 ``` bash
 sudo usermod -aG dialout $USER
 sudo reboot
@@ -139,11 +139,11 @@ groups
 ```bash
 ls -l /dev/ttyACM0
 ```
-^ you should see something like 
+when you run this ^ you should see something like:
 ```bash
 crw-rw-rw- 1 root dialout 166, 0 ... /dev/ttyACM0
 ```
+this command checks logs
 ```bash
 journalctl -u limo-id-sender -f
 ```
-^ checks logs
