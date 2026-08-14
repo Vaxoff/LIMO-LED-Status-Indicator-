@@ -25,8 +25,8 @@ Replace `XXX` with LIMO number
 ### 2. Clone this repository
 
 ```bash
-git clone https://github.com/Vaxoff/LIMO-LED-Status-Indicator-.git
-cd LIMO-LED-Status-Indicator-
+git clone https://github.com/Vaxoff/LIMO-LED-Status-Indicator.git
+cd LIMO-LED-Status-Indicator
 ```
 
 ### 3. Install the systemd service
@@ -85,11 +85,17 @@ journalctl -u limo-id-sender -f
 
 This tails the service's logs in real time — useful for confirming it detects Wi-Fi changes and sends data correctly. Press `Ctrl+C` to exit.
 
+### 5. Setup ESP32
+
+After connecting to the ESP32 click on tools and enable `USB CDC On Boot`
+
+Copy code from `ESP32C6-code.ino` into the esp32 than upload the 
+    
 ## LED Status Reference
  
 | Color | State | Meaning |
 |---|---|---|
-| 🟡 Yellow | Waiting for ID | Board has booted but hasn't received its `LIMO_ID` from the host yet. Normal for a few seconds after plugging in. |
+| ⚪ White | Waiting for ID | Board has booted but hasn't received its `LIMO_ID` from the host yet. Normal for a few seconds after plugging in. |
 | 🔴 Red | Error | Either connecting to WiFi, or connected but failed to reach the MQTT broker. |
 | 🔵 Blue | Idle | Connected to WiFi + MQTT, has an ID, but hasn't seen any tracking messages yet. |
 | 🟣 Magenta | Not Tracked | MQTT messages are coming through, but none referencing this robot's ID in the last 10 seconds. |
@@ -158,6 +164,11 @@ crw-rw-rw- 1 root dialout 166, 0 ... /dev/ttyACM0
 this command checks logs
 ```bash
 journalctl -u limo-id-sender -f
+```
+
+enable USB CDC On Boot and then copy esp32 code onto esp, the file is called:
+```bash
+ESP32C6-code.ino
 ```
 
 LED color refrence:
