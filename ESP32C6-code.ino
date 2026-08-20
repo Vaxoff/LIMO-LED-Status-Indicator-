@@ -95,36 +95,57 @@ void setLedState(LedState newState) {
 }
 
 // --------------------------------------------------------------------------
-// Blinks MOSFET_GATE_PIN on/off, non-blocking (uses millis(), no delay()).
+// Drives MOSFET_GATE_PIN with the ESP32's hardware LEDC (PWM) peripheral
+// instead of software millis() toggling. Once configured, the waveform is
+// generated entirely by dedicated PWM hardware -- it can't drift, stutter,
+// or get delayed by other work happening in loop() (WiFi/MQTT handling,
+// delay() calls, etc.), which is what made a millis()-based toggle brittle.
 //
-//   intervalMs > 0  -> toggles the pin every intervalMs milliseconds
-//   intervalMs == 0 -> disables blinking and holds the pin solid HIGH
+//   freqHz       -> PWM frequency in Hz (ignored if dutyPercent is 0 or 100)
+//   dutyPercent  -> 0-100
+//                     0   -> pin held solid LOW  (PWM hardware detached)
+//                     100 -> pin held solid HIGH (PWM hardware detached)
+//                     1-99 -> real hardware PWM at freqHz / dutyPercent
 //
-// Call this once per loop() iteration with whatever interval you want at
-// that moment; it tracks its own timing internally via static variables.
-// NOTE: this pin currently also gates power to the LED (set HIGH once in
-// setup()). If you call this with a nonzero interval, the LED will lose
-// power during the "off" half of each blink -- that's expected given what
-// you asked for, just flagging it since it doubles as the power gate today.
+// Written for Arduino-ESP32 core 3.x's pin-based LEDC API
+// (ledcAttach/ledcWrite/ledcChangeFrequency, no channel argument).
 // --------------------------------------------------------------------------
-void blinkMosfet(unsigned long intervalMs) {
-  static unsigned long lastToggleTime = 0;
-  static bool pinIsHigh = true;
+const int MOSFET_PWM_RESOLUTION = 8; // 8-bit duty resolution (0-255)
+bool mosfetPwmAttached = false;
+double currentFreqHz = -1;
+int currentDutyPercent = -1; // -1 = not yet configured
 
-  if (intervalMs == 0) {
-    if (!pinIsHigh) {
-      pinIsHigh = true;
-      digitalWrite(MOSFET_GATE_PIN, HIGH);
+void blinkMosfet(double freqHz, uint8_t dutyPercent) {
+  if (dutyPercent > 100) dutyPercent = 100;
+
+  // Fully off or fully on -> drive the pin directly, no PWM hardware needed
+  if (dutyPercent == 0 || dutyPercent == 100) {
+    if (mosfetPwmAttached) {
+      ledcDetach(MOSFET_GATE_PIN);
+      mosfetPwmAttached = false;
     }
+    pinMode(MOSFET_GATE_PIN, OUTPUT);
+    digitalWrite(MOSFET_GATE_PIN, dutyPercent == 100 ? HIGH : LOW);
+    currentFreqHz = 0;
+    currentDutyPercent = dutyPercent;
     return;
   }
 
-  unsigned long now = millis();
-  if (now - lastToggleTime >= intervalMs) {
-    pinIsHigh = !pinIsHigh;
-    digitalWrite(MOSFET_GATE_PIN, pinIsHigh ? HIGH : LOW);
-    lastToggleTime = now;
+  if (freqHz == currentFreqHz && dutyPercent == currentDutyPercent) return; // already configured
+
+  if (!mosfetPwmAttached) {
+    ledcAttach(MOSFET_GATE_PIN, freqHz, MOSFET_PWM_RESOLUTION);
+    mosfetPwmAttached = true;
+  } else if (freqHz != currentFreqHz) {
+    ledcChangeFrequency(MOSFET_GATE_PIN, freqHz, MOSFET_PWM_RESOLUTION);
   }
+
+  uint32_t maxDuty = (1u << MOSFET_PWM_RESOLUTION) - 1; // 255 at 8-bit
+  uint32_t dutyValue = (maxDuty * dutyPercent) / 100;
+  ledcWrite(MOSFET_GATE_PIN, dutyValue);
+
+  currentFreqHz = freqHz;
+  currentDutyPercent = dutyPercent;
 }
 
 void checkSerialForID() {
@@ -250,7 +271,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void setup() {
   pinMode(MOSFET_GATE_PIN, OUTPUT);
-  digitalWrite(MOSFET_GATE_PIN, HIGH);
+  digitalWrite(MOSFET_GATE_PIN, HIGH); // matches blinkMosfet()'s default "solid on" state (currentBlinkIntervalMs = 0)
 
   Serial.begin(115200);
   pixels.begin();
@@ -268,8 +289,8 @@ void setup() {
 void loop() {
   checkSerialForID();
 
-  blinkMosfet(1);
-
+  // NEW: while we don't have an ID, keep asking for one instead of
+  // silently hoping the one shot the host sent actually landed.
   if (LIMO_ID == "UNKNOWN") {
     unsigned long now = millis();
     if (now - lastIdRequestTime > idRequestInterval) {
@@ -301,4 +322,6 @@ void loop() {
       setLedState(STATE_IDLE); // Blue -- not able to track right now
     }
   }
+
+  blinkMosfet(1000, 75);
 }
