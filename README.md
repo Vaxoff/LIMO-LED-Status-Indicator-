@@ -98,7 +98,7 @@ Copy code from `ESP32C6-code.ino` into the esp32 than upload the
 | ⚪ White | Waiting for ID | Board has booted but hasn't received its `LIMO_ID` from the host yet. Normal for a few seconds after plugging in. |
 | 🔴 Red | Error | Either connecting to WiFi, or connected but failed to reach the MQTT broker. |
 | 🔵 Blue | Idle | Connected to WiFi + MQTT, has an ID, but hasn't seen any tracking messages yet. |
-| 🟣 Magenta | Not Tracked | MQTT messages are coming through, but none referencing this robot's ID in the last 10 seconds. |
+| 🟣 Magenta | On But Not Tracked | Motive, Mocap, & MQTT are on and ready to track but LIMO isn't being tracked. |
 | 🟢 Green | Tracked | Messages referencing this robot's ID have been seen in the last 10 seconds — it's actively being tracked. |
 
 
