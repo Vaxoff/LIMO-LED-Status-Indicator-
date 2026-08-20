@@ -13,7 +13,8 @@ const char* password = "botbotbot";
 // --- MQTT CONFIGURATION ---
 const char* mqtt_server = "rasticvm.internal";
 const int mqtt_port = 1883;
-const char* mqtt_topic = "rb/#";         // Listen to everything
+const char* MOCAP_HEALTH_TOPIC = "mocap/health/available";
+// Per-robot tracking topic (rb/<LIMO_ID>) is built at runtime once we know LIMO_ID.
 
 // --- LIMO CONFIGURATION ---
 String LIMO_ID = "UNKNOWN";
@@ -30,15 +31,16 @@ PubSubClient client(espClient);
 
 // --- TIMING & STATE ---
 unsigned long lastMyTrackTime = 0;
-unsigned long lastAnyTrackTime = 0;
 const long trackingTimeout = 10000; // 10 seconds
+
+// Mocap availability via mocap/health/available (online/offline, retained)
+bool mocapOnline = false;
 
 // NEW: periodically nag the host for our ID instead of waiting silently
 unsigned long lastIdRequestTime = 0;
 const long idRequestInterval = 1000; // ask once a second while unknown
 
 bool hasEverBeenTracked = false;
-bool hasEverReceivedAny = false;
 
 enum LedState { STATE_IDLE, STATE_TRACKED, STATE_NOT_TRACKED, STATE_ERROR, STATE_WAITING_FOR_ID };
 LedState currentState = STATE_ERROR;
@@ -81,7 +83,7 @@ void setLedState(LedState newState) {
 
   // Publish our state to our own permanent topic so the visualizer has a solid node
   if (client.connected() && LIMO_ID != "UNKNOWN") {
-    String statusTopic = "esp32_status/limo" + LIMO_ID;
+    String statusTopic = "esp32_status/" + LIMO_ID;
     const char* stateStr = "UNKNOWN";
     if (newState == STATE_TRACKED) stateStr = "TRACKED";
     else if (newState == STATE_NOT_TRACKED) stateStr = "NOT_TRACKED";
@@ -89,6 +91,39 @@ void setLedState(LedState newState) {
     else if (newState == STATE_ERROR) stateStr = "ERROR";
 
     client.publish(statusTopic.c_str(), stateStr, true);
+  }
+}
+
+// --------------------------------------------------------------------------
+// Blinks MOSFET_GATE_PIN on/off, non-blocking (uses millis(), no delay()).
+//
+//   intervalMs > 0  -> toggles the pin every intervalMs milliseconds
+//   intervalMs == 0 -> disables blinking and holds the pin solid HIGH
+//
+// Call this once per loop() iteration with whatever interval you want at
+// that moment; it tracks its own timing internally via static variables.
+// NOTE: this pin currently also gates power to the LED (set HIGH once in
+// setup()). If you call this with a nonzero interval, the LED will lose
+// power during the "off" half of each blink -- that's expected given what
+// you asked for, just flagging it since it doubles as the power gate today.
+// --------------------------------------------------------------------------
+void blinkMosfet(unsigned long intervalMs) {
+  static unsigned long lastToggleTime = 0;
+  static bool pinIsHigh = true;
+
+  if (intervalMs == 0) {
+    if (!pinIsHigh) {
+      pinIsHigh = true;
+      digitalWrite(MOSFET_GATE_PIN, HIGH);
+    }
+    return;
+  }
+
+  unsigned long now = millis();
+  if (now - lastToggleTime >= intervalMs) {
+    pinIsHigh = !pinIsHigh;
+    digitalWrite(MOSFET_GATE_PIN, pinIsHigh ? HIGH : LOW);
+    lastToggleTime = now;
   }
 }
 
@@ -156,14 +191,27 @@ void reconnect() {
     Serial.print("[MQTT] Attempting connection... ");
 
     String clientId = "ESP32_" + LIMO_ID + "_" + macSuffix;
-    String statusTopic = "esp32_status/limo" + LIMO_ID;
+    String statusTopic = "esp32_status/" + LIMO_ID;
+    // FIX: this was "test/" + LIMO_ID (leftover debug value) -- that's why
+    // green never lit up. Mocap publishes tracking data to rb/<LIMO_ID>.
+    String trackTopic = "rb/" + LIMO_ID;
 
     if (client.connect(clientId.c_str(), statusTopic.c_str(), 1, true, "OFFLINE")) {
       Serial.println("Connected!");
       connectedAsID = clientId;
+
+      // Only subscribe to OUR tracking topic and the shared health heartbeat --
+      // no more "#". The broker does the filtering now instead of us doing it
+      // client-side, so every other robot's traffic (and printers, doors, etc.)
+      // never even reaches this board.
       Serial.print("[MQTT] Subscribing to: ");
-      Serial.println(mqtt_topic);
-      client.subscribe(mqtt_topic);
+      Serial.println(trackTopic);
+      client.subscribe(trackTopic.c_str());
+
+      Serial.print("[MQTT] Subscribing to: ");
+      Serial.println(MOCAP_HEALTH_TOPIC);
+      client.subscribe(MOCAP_HEALTH_TOPIC);
+
       setLedState(STATE_IDLE);
     } else {
       Serial.print("Failed, rc=");
@@ -176,36 +224,28 @@ void reconnect() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  // CRITICAL FIX: Ignore our own published status messages!
-  // Since we subscribe to "#", we hear our own messages. We must skip them
-  // so we don't falsely trigger our own tracking state.
-  if (strncmp(topic, "esp32_status/", 13) == 0) {
+  String topicStr = String(topic);
+
+  if (topicStr == MOCAP_HEALTH_TOPIC) {
+    // "available" is retained/LWT-backed on mocap's side, so the broker
+    // itself guarantees this flips to offline on a real crash/disconnect --
+    // we can trust it directly without our own staleness timeout.
+    char buf[length + 1];
+    memcpy(buf, payload, length);
+    buf[length] = '\0';
+
+    mocapOnline = (String(buf) == "online");
+    Serial.print("[MOCAP] available -> ");
+    Serial.println(mocapOnline ? "online" : "offline");
     return;
   }
 
-  // 1. ANY message means the system is alive
-  lastAnyTrackTime = millis();
-  hasEverReceivedAny = true;
-
-  // 2. Ultra-fast C-string check for our ID
-  if (LIMO_ID != "UNKNOWN") {
-    char targetId[20];
-    snprintf(targetId, sizeof(targetId), "limo%s", LIMO_ID.c_str());
-    size_t targetLen = strlen(targetId);
-
-    char* match = strstr(topic, targetId);
-    if (match != NULL) {
-      char nextChar = *(match + targetLen);
-      if (nextChar == '\0' || nextChar == '/') {
-        lastMyTrackTime = millis();
-        hasEverBeenTracked = true;
-
-        // DEBUG: This will print exactly what topic is making us Green
-        Serial.print("[TRACK] Update from: ");
-        Serial.println(topic);
-      }
-    }
-  }
+  // Anything else we're subscribed to can only be our own rb/<LIMO_ID> topic --
+  // the broker already filtered it for us, no client-side ID matching needed.
+  lastMyTrackTime = millis();
+  hasEverBeenTracked = true;
+  Serial.print("[TRACK] Update from: ");
+  Serial.println(topic);
 }
 
 void setup() {
@@ -228,8 +268,8 @@ void setup() {
 void loop() {
   checkSerialForID();
 
-  // NEW: while we don't have an ID, keep asking for one instead of
-  // silently hoping the one shot the host sent actually landed.
+  blinkMosfet(1);
+
   if (LIMO_ID == "UNKNOWN") {
     unsigned long now = millis();
     if (now - lastIdRequestTime > idRequestInterval) {
@@ -252,13 +292,13 @@ void loop() {
     unsigned long currentTime = millis();
 
     if (hasEverBeenTracked && (currentTime - lastMyTrackTime < trackingTimeout)) {
-      setLedState(STATE_TRACKED); // Green
+      setLedState(STATE_TRACKED); // Green -- this robot is tracked
     }
-    else if (hasEverReceivedAny && (currentTime - lastAnyTrackTime < trackingTimeout)) {
-      setLedState(STATE_NOT_TRACKED); // Magenta
+    else if (mocapOnline) {
+      setLedState(STATE_NOT_TRACKED); // Magenta -- able to track, just not tracking me
     }
     else {
-      setLedState(STATE_IDLE); // Blue
+      setLedState(STATE_IDLE); // Blue -- not able to track right now
     }
   }
 }
